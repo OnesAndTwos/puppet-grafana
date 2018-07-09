@@ -114,16 +114,18 @@ Puppet::Type.type(:grafana_user).provide(:grafana, parent: Puppet::Provider::Gra
     if user.nil?
       response = send_request('POST', format('%s/admin/users', resource[:grafana_api_path]), data)
     else
-      data[:id] = user[:id]
-      send_request 'PUT', format('%s/admin/users/%s/password', resource[:grafana_api_path], user[:id]), password: data.delete(:password)
-      send_request 'PUT', format('%s/admin/users/%s/permissions', resource[:grafana_api_path], user[:id]), isGrafanaAdmin: data.delete(:isGrafanaAdmin)
       response = send_request('PUT', format('%s/users/%s', resource[:grafana_api_path], user[:id]), data)
     end
+
+    self.user = nil
+
+    send_request 'PUT', format('%s/admin/users/%s/password', resource[:grafana_api_path], user[:id]), password: data.delete(:password)
+    send_request 'PUT', format('%s/admin/users/%s/permissions', resource[:grafana_api_path], user[:id]), isGrafanaAdmin: data.delete(:isGrafanaAdmin)
 
     if response.code != '200'
       raise format('Failed to create user %s (HTTP response: %s/%s)', resource[:name], response.code, response.body)
     end
-    self.user = nil
+
   end
 
   def delete_user
