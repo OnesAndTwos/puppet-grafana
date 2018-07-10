@@ -40,19 +40,24 @@ class Puppet::Provider::Grafana < Puppet::Provider
     end
     uri = URI.parse format('%s://%s:%d%s?%s', grafana_scheme, grafana_host, grafana_port, path, encoded_search)
 
+    Puppet.debug("Calling endpoint '#{path}' with '#{data.to_json}'")
+
     case operation.upcase
-    when 'POST'
-      request = Net::HTTP::Post.new(uri.request_uri)
-      request.body = data.to_json
-    when 'PUT'
-      request = Net::HTTP::Put.new(uri.request_uri)
-      request.body = data.to_json
-    when 'GET'
-      request = Net::HTTP::Get.new(uri.request_uri)
-    when 'DELETE'
-      request = Net::HTTP::Delete.new(uri.request_uri)
-    else
-      raise Puppet::Error, format('Unsupported HTTP operation %s', operation)
+      when 'POST'
+        request = Net::HTTP::Post.new(uri.request_uri)
+        request.body = data.to_json
+      when 'PATCH'
+        request = Net::HTTP::Patch.new(uri.request_uri)
+        request.body = data.to_json
+      when 'PUT'
+        request = Net::HTTP::Put.new(uri.request_uri)
+        request.body = data.to_json
+      when 'GET'
+        request = Net::HTTP::Get.new(uri.request_uri)
+      when 'DELETE'
+        request = Net::HTTP::Delete.new(uri.request_uri)
+      else
+        raise Puppet::Error, format('Unsupported HTTP operation %s', operation)
     end
 
     request.content_type = 'application/json'
@@ -60,10 +65,14 @@ class Puppet::Provider::Grafana < Puppet::Provider
       request.basic_auth resource[:grafana_user], resource[:grafana_password]
     end
 
-    Net::HTTP.start(grafana_host, grafana_port,
-                    use_ssl: grafana_scheme == 'https',
-                    verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
-      http.request(request)
+    Net::HTTP.start(grafana_host, grafana_port, use_ssl: grafana_scheme == 'https', verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
+      response = http.request(request)
+
+      if response.is_a? Net::HTTPError
+        raise "'#{operation}' HTTP request to '#{path}' failed with '#{response.code}' and body '#{response.body}'"
+      end
+
+      return response
     end
   end
 end

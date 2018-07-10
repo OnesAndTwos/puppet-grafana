@@ -9,18 +9,12 @@ Puppet::Type.type(:grafana_user).provide(:grafana, parent: Puppet::Provider::Gra
 
   def users
     response = send_request('GET', format('%s/users', resource[:grafana_api_path]))
-    if response.code != '200'
-      raise format('Fail to retrieve users (HTTP response: %s/%s)', response.code, response.body)
-    end
 
     begin
       users = JSON.parse(response.body)
 
-      users.map {|x| x['id']}.map do |id|
+      users.map { |x| x['id'] }.map do |id|
         response = send_request('GET', format('%s/users/%s', resource[:grafana_api_path], id))
-        if response.code != '200'
-          raise format('Fail to retrieve user %d (HTTP response: %s/%s)', id, response.code, response.body)
-        end
 
         user = JSON.parse(response.body)
         {
@@ -39,7 +33,7 @@ Puppet::Type.type(:grafana_user).provide(:grafana, parent: Puppet::Provider::Gra
   end
 
   def user
-    @user = users.find {|x| x[:name] == resource[:name]} unless @user
+    @user = users.find { |x| x[:name] == resource[:name] } unless @user
     @user
   end
 
@@ -99,47 +93,35 @@ Puppet::Type.type(:grafana_user).provide(:grafana, parent: Puppet::Provider::Gra
     resource[:is_admin] = value
     save_user
   end
-
   # rubocop:enable Style/PredicateName
 
   def save_user
+    is_admin = resource[:is_admin] == :true
     data = {
         login: resource[:name],
         name: resource[:full_name],
         email: resource[:email],
         password: resource[:password],
-        theme: resource[:theme],
-        isGrafanaAdmin: (resource[:is_admin] == :true)
+        theme: resource[:theme]
     }
 
     if user.nil?
-      response = send_request('POST', format('%s/admin/users', resource[:grafana_api_path]), data)
-      Puppet.debug("Grafana_user: User is nil so made a POST and got this response '#{response.body}'")
+      send_request 'POST', "#{resource[:grafana_api_path]}/admin/users", data
     else
-      response = send_request('PUT', format('%s/users/%s', resource[:grafana_api_path], user[:id]), data)
-      Puppet.debug("Grafana_user: User has id #{user[:id]} so made a PUT and got this response '#{response.body}'")
+      send_request 'PUT', "#{resource[:grafana_api_path]}/users/#{user[:id]}", data
     end
-
     self.user = nil
 
-    password_response = send_request 'PUT', format('%s/admin/users/%s/password', resource[:grafana_api_path], user[:id]), password: data[:password]
-    permission_response = send_request 'PUT', format('%s/admin/users/%s/permissions', resource[:grafana_api_path], user[:id]), isGrafanaAdmin: data[:isGrafanaAdmin]
+    send_request 'PUT', "#{resource[:grafana_api_path]}/admin/users/#{user[:id]}/password", password: data[:password]
+    send_request 'PUT', "#{resource[:grafana_api_path]}/admin/users/#{user[:id]}/permissions", isGrafanaAdmin: is_admin
 
-    Puppet.debug("Grafana_user: Password set and got this response '#{password_response.body}'")
-    Puppet.debug("Grafana_user: Permissions set to '#{data[:isGrafanaAdmin]}' and got this response '#{permission_response.body}'")
+    send_request 'PATCH', "#{resource[:grafana_api_path]}/org/users/#{user[:id]}", role: "Admin" if is_admin
 
-    if response.code != '200'
-      raise format('Failed to create user %s (HTTP response: %s/%s)', resource[:name], response.code, response.body)
-    end
     self.user = nil
   end
 
   def delete_user
-    response = send_request('DELETE', format('%s/admin/users/%s', resource[:grafana_api_path], user[:id]))
-
-    if response.code != '200'
-      raise format('Failed to delete user %s (HTTP response: %s/%s', resource[:name], response.code, response.body)
-    end
+    send_request('DELETE', format('%s/admin/users/%s', resource[:grafana_api_path], user[:id]))
     self.user = nil
   end
 
@@ -153,5 +135,6 @@ Puppet::Type.type(:grafana_user).provide(:grafana, parent: Puppet::Provider::Gra
 
   def exists?
     user
+
   end
 end

@@ -37,6 +37,10 @@ Puppet::Type.newtype(:grafana_user) do
     desc 'The password for the Grafana server'
   end
 
+  newparam(:org_roles) do
+    desc 'The organisations and roles for the user'
+  end
+
   newparam(:full_name) do
     desc 'The full name of the user.'
   end
