@@ -98,6 +98,7 @@ Puppet::Type.type(:grafana_user).provide(:grafana, parent: Puppet::Provider::Gra
 
   def save_user
     is_admin = resource[:is_admin] == :true
+    org_roles = resource[:org_roles] || {}
     data = {
         login: resource[:name],
         name: resource[:full_name],
@@ -115,7 +116,7 @@ Puppet::Type.type(:grafana_user).provide(:grafana, parent: Puppet::Provider::Gra
     send_request 'PUT', "#{resource[:grafana_api_path]}/admin/users/#{user[:id]}/password", password: data[:password]
     send_request 'PUT', "#{resource[:grafana_api_path]}/admin/users/#{user[:id]}/permissions", isGrafanaAdmin: is_admin
 
-    resource[:org_roles].each_pair do |org_name, role_name|
+    org_roles.each_pair do |org_name, role_name|
 
       org_response = send_request 'GET', "#{resource[:grafana_api_path]}/orgs/name/#{URI::encode(org_name)}"
       organisation = JSON.parse(org_response.body, symbolize_names: true)
@@ -141,6 +142,5 @@ Puppet::Type.type(:grafana_user).provide(:grafana, parent: Puppet::Provider::Gra
 
   def exists?
     user
-
   end
 end

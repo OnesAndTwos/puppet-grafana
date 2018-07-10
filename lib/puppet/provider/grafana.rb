@@ -40,8 +40,6 @@ class Puppet::Provider::Grafana < Puppet::Provider
     end
     uri = URI.parse format('%s://%s:%d%s?%s', grafana_scheme, grafana_host, grafana_port, path, encoded_search)
 
-    Puppet.debug("Calling endpoint '#{path}' with '#{data.to_json}'")
-
     case operation.upcase
       when 'POST'
         request = Net::HTTP::Post.new(uri.request_uri)
