@@ -1,4 +1,5 @@
 require 'json'
+require 'uri'
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'grafana'))
 
@@ -110,12 +111,17 @@ Puppet::Type.type(:grafana_user).provide(:grafana, parent: Puppet::Provider::Gra
     else
       send_request 'PUT', "#{resource[:grafana_api_path]}/users/#{user[:id]}", data
     end
-    self.user = nil
 
     send_request 'PUT', "#{resource[:grafana_api_path]}/admin/users/#{user[:id]}/password", password: data[:password]
     send_request 'PUT', "#{resource[:grafana_api_path]}/admin/users/#{user[:id]}/permissions", isGrafanaAdmin: is_admin
 
-    send_request 'PATCH', "#{resource[:grafana_api_path]}/org/users/#{user[:id]}", role: "Admin" if is_admin
+    resource[:org_roles].each_pair do |org_name, role_name|
+
+      org_response = send_request 'GET', "#{resource[:grafana_api_path]}/orgs/name/#{URI::encode(org_name)}"
+      organisation = JSON.parse(org_response.body, symbolize_names: true)
+      send_request 'PATCH', "#{resource[:grafana_api_path]}/orgs/#{organisation[:id]}/users/#{user[:id]}", role: role_name
+
+    end
 
     self.user = nil
   end
